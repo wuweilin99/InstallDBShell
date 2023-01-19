@@ -8,7 +8,7 @@ echo "**************************************************************************
 
 export INPUT=$1
 export DB_VRSION=8.0
-export SOFTWARE_DIR=/home/weilin/Downloads/mysql/p34927567_570_Linux-x86-64
+export SOFTWARE_DIR=/Downloads/software
 export MYSQL_FILE_NAME=mysql-advanced-5.7.40-linux-glibc2.12-x86_64.tar.gz
 export NEW_MYSQL_PASSWD=V##T60*g#Pni$Jr
 export APP_DIR=/app/mysql
@@ -239,12 +239,17 @@ ConfigOsEnv() {
     echo "******************************************************************************"
     echo "configuration mysql os env" $(date)
     echo "******************************************************************************"
-
-    cat >>/etc/profile <<EOF
+    grep MYSQL_HOME= /etc/profile >&/dev/null
+    if [ $? -ne 0 ]; then
+        cat >>/etc/profile <<EOF
 #MYSQL_HOME
 export MYSQL_HOME=${MYSQL_BASE_DIR}/mysql
 export PATH=\$PATH:\$MYSQL_HOME/bin
 EOF
+    else
+        c1 "MySQL the environment has been configured" green
+    fi
+
 }
 
 CreateMysqlDir() {
@@ -270,7 +275,7 @@ Config_Mycnf5() {
 
     MEM=$(expr $(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024)
     MYSQL_MEM=$(expr $MEM \* 7 / 10)
-
+    mv ${APP_DIR}/my.cnf ${APP_DIR}/my.cnf_$(date +"%Y%m%d%H%M%S")_bak
     cat >${APP_DIR}/my.cnf <<EOF
 [universe]
 iops = 0
@@ -283,7 +288,7 @@ umask_dir = 0750
 umask = 0640
 
 [client]
-port = 3306
+port = ${MYSQL_PORT}
 socket = ${APP_DIR}/mysql.sock
 
 [mysql]
@@ -294,7 +299,7 @@ loose-skip-binary-as-hex
 [mysqld]
 skip_ssl
 user = mysql
-port = 3306
+port = ${MYSQL_PORT}
 #主从复制或MGR集群中,server_id记得要不同
 server_id = ${RANDOM}
 #数据库字符集
@@ -321,7 +326,7 @@ basedir = ${MYSQL_BASE_DIR}/mysql
 datadir = ${DATA_DIR}
 tmpdir = ${TMP_DIR}
 socket = ${APP_DIR}/mysql.sock
-pid_file = mysqldb.pid
+pid_file = ${APP_DIR}/mysqldb.pid
 log_error = ${LOGS_DIR}/error.log
 slow_query_log_file = ${LOGS_DIR}/slow.log
 log_bin = ${BINGLOG_DIR}/mybinlog
@@ -501,11 +506,256 @@ Config_Mycnf8() {
     echo "******************************************************************************"
     echo "configuration mysql 8 my.cnf config" $(date)
     echo "******************************************************************************"
-
+    CPU_NUM=$(cat /proc/cpuinfo | grep "processor" | wc -l)
+    MYSQL_CPU_NUM=$(expr ${CPU_NUM} \* 2)
     MEM=$(expr $(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024)
-    MYSQL_MEM=$(expr $MEM \* 7 / 10)
-
+    MYSQL_MEM=$(expr ${MEM} \* 7 / 10)
+    mv ${APP_DIR}/my.cnf ${APP_DIR}/my.cnf_$(date +"%Y%m%d%H%M%S")_bak
     cat >>${APP_DIR}/my.cnf <<EOF
+[client]
+port    = ${MYSQL_PORT}
+socket  = ${APP_DIR}/mysql.sock
+
+[mysql]
+prompt = "\u@ \R:\m:\s [\d]> "
+no_auto_rehash
+loose-skip-binary-as-hex
+
+[mysqld]
+user    = mysql
+port    = ${MYSQL_PORT}
+#主从复制或MGR集群中,server_id记得要不同#另外,实例启动时会生成 auto.cnf,里面的 server_uuid 值也要不同#server_uuid的值还可以自己手动指定,只要符合uuid的格式标准就可以
+server_id = ${RANDOM}
+character_set_server = UTF8MB4
+skip_name_resolve = 1
+#若你的MySQL数据库主要运行在境外,请务必根据实际情况调整本参数
+default_time_zone = "+8:00"
+#启用admin_port,连接数爆满等紧急情况下给管理员留个后门
+admin_address = '127.0.0.1'
+admin_port = 33062
+create_admin_listener_thread = on
+
+# dir setttings
+basedir = ${MYSQL_BASE_DIR}/mysql
+datadir = ${DATA_DIR}
+socket  = ${APP_DIR}/mysql.sock
+pid_file = ${APP_DIR}/mysqld.pid
+log_error = ${LOGS_DIR}/error.log
+tmpdir = ${TMP_DIR}
+slow_query_log_file = ${LOGS_DIR}/slow.log
+log_bin = ${BINGLOG_DIR}/mybinlog
+innodb_log_group_home_dir = ${REDOLOG_DIR}
+#设为内存的70%
+innodb_buffer_pool_size = ${MYSQL_MEM}M
+
+#performance setttings
+#MDL锁超时时间
+lock_wait_timeout = 3600
+#打开文件的数量与操作系统限制也有关系
+open_files_limit = 65535
+#主线程在暂时停止响应新请求之后,可以在内部堆叠多少个请求
+back_log = 1024
+#客户端连接的最大并发数
+max_connections = 1000
+#一台物理服务器只要连接 异常中断累计超过1000000次,就再也无法连接上mysqld服务
+max_connect_errors = 1000000
+#用于设置table高速缓存的数量,与连接数有关
+table_open_cache = 4096
+#表定义信息缓存,mysql源码限制最多2000个
+table_definition_cache = 2000
+#打开的表缓存实例的数量
+table_open_cache_instances = 32
+#每个连接线程被创建时,MySQL给它分配的内存大小
+thread_stack = 512K
+#连接分配内存,1000个连接x8M=8000M
+sort_buffer_size = 4M
+#当join是all,index,rang或者Index_merge的时候使用的buffer
+join_buffer_size = 16M
+#对表进行顺序扫描的那个线程所使用的缓存区的大小
+read_buffer_size = 8M
+#在排序后,读取结果数据的缓冲区大小
+read_rnd_buffer_size = 4M
+#用来缓存批量插入数据的时候临时缓存写入数据
+bulk_insert_buffer_size = 64M
+#可以重新利用保存在缓存中线程的数量
+thread_cache_size = 1500
+#交互模式下的没有操作后的超时时间
+interactive_timeout = 600
+#非交互模式的没有操作后的超时时间
+wait_timeout = 600
+#使用的各种临时表(即服务器在处理SQL语句的过程中自动创建的表)的最大允许长度
+tmp_table_size = 32M
+#设置用户创建的MEMORY表允许增长的最大大小,该变量的值用于计算内存表的MAX_ROWS值
+max_heap_table_size = 32M
+
+#log settings
+log_timestamps = SYSTEM
+#错误信息、告警信息和通知信息写入日志
+log_error_verbosity = 3
+#是否要启用慢查询日志记录
+slow_query_log = 1
+#是否扩展慢查询日志记录字段
+log_slow_extra = 1
+long_query_time = 0.1   #秒#控制未使用索引的查询是否写入慢日志
+log_queries_not_using_indexes = 1
+#设定每分钟记录到日志的未使用索引的语句数目,超过这个数目后只记录语句数量和花费的总时间
+log_throttle_queries_not_using_indexes = 60
+#查询记录条数
+min_examined_row_limit = 100
+#是否记录DDL操作
+log_slow_admin_statements = 1
+#是否记录从库传过来的慢查询
+log_slow_slave_statements = 1
+binlog_format = ROW
+sync_binlog = 1 #MGR环境中由其他节点提供容错性,可不设置双1以提高本地节点性能
+binlog_cache_size = 4M
+max_binlog_cache_size = 2G
+max_binlog_size = 1G
+binlog_rows_query_log_events = 1
+#binlog日志保存时间binlog_expire_logs_seconds = 604800 #秒#MySQL 8.0.22前,想启用MGR的话,需要设置binlog_checksum=NONE才行
+binlog_checksum = CRC32
+gtid_mode = ON
+enforce_gtid_consistency = TRUE
+#将master服务器上获取数据变更的信息记录到从服务器的二进制文件中#
+log_slave_updates = on   #   off
+
+# for global
+#设置在CREATE TABLE时被禁用的存储引擎
+disabled_storage_engines=archive,blackhole,example,federated,memory,merge,ndb
+#指定载入哪些插件
+plugin_load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so;validate_password=validate_password.so"
+#是否可以信任存储函数创建者
+log_bin_trust_function_creators = on
+#表名存储在磁盘是小写的,但是比较的时候是不区分大小写
+lower_case_table_names = 1
+#GROUP_CONCAT函数返回的结果大小
+group_concat_max_len = 102400 #1024
+#限制了同一时间在mysqld上所有session中prepared 语句的上限,默认16382
+max_prepared_stmt_count = 1048576
+#自增列设置
+auto_increment_increment = 1 #   1
+auto_increment_offset = 1    #   1
+
+
+#myisam settings
+key_buffer_size = 32M
+myisam_sort_buffer_size = 128M
+
+#replication settings
+relay_log_recovery = 1
+slave_parallel_type = LOGICAL_CLOCK
+slave_parallel_workers = ${MYSQL_CPU_NUM} #可以设置为逻辑CPU数量的2倍
+binlog_transaction_dependency_tracking = WRITESET
+slave_preserve_commit_order = 1
+slave_checkpoint_period = 2
+
+
+# async replication settings
+#启动slave从库的时候,复制线程不会随着mysql进程启动而开启
+skip_slave_start
+
+#innodb settings
+transaction_isolation = READ-COMMITTED
+innodb_buffer_pool_instances = 8
+#指定系统表空间文件的路径和ibdata1文件的大小
+innodb_data_file_path = ibdata1:64M:autoextend
+innodb_temp_data_file_path =ibtmp1:12M:autoextend # ibtmp1:12M:autoextend
+#如果开启InnoDB预热功能,停止MySQL服务时,MySQL将InnoDB缓冲池中的热数据保存到数据库根目录中,默认文件名为
+ib_buffer_pool
+innodb_buffer_pool_filename =ib_buffer_pool # ib_buffer_pool
+innodb_flush_log_at_trx_commit = 1 #MGR环境中由其他节点提供容错性,可不设置双1以提高本地节点性能#InnoDB事务日志缓冲区的大小
+innodb_log_buffer_size = 32M
+#每个InnoDB日志文件的大小innodb_log_file_size = 1G #如果线上环境的TPS较高,建议加大至1G以上,如果压力不大可以调小
+innodb_log_files_in_group = 8
+innodb_max_undo_log_size = 4G
+# 根据您的服务器IOPS能力适当调整# 一般配普通SSD盘的话,可以调整到 10000 - 20000
+# 配置高端PCIe SSD卡的话,则可以调整的更高,比如 50000 - 80000
+innodb_io_capacity = 4000
+innodb_io_capacity_max = 8000
+innodb_open_files = 65535
+innodb_flush_method = O_DIRECT
+innodb_lru_scan_depth = 4000
+innodb_lock_wait_timeout = 10
+innodb_rollback_on_timeout = 1
+innodb_print_all_deadlocks = 1
+innodb_online_alter_log_max_size = 4G
+#是否开启ddl日志打印#innodb_print_ddl_logs = 1
+#innodb_status_file = 1
+#注意: 开启 innodb_status_output & innodb_status_output_locks 后, 可能会导致log_error文件增长较快
+innodb_status_output = 0
+innodb_status_output_locks = 1
+innodb_sort_buffer_size = 67108864
+innodb_adaptive_hash_index = OFF
+#提高索引统计信息精确度
+innodb_stats_persistent_sample_pages = 500
+#InnoDB尝试维护的线程数量上限,0为不控制,如负载特别高可设置为CPU核数
+innodb_thread_concurrency = 0
+#线程设置innodb_read_io_threads =4 # 4
+innodb_write_io_threads =4 # 4
+innodb_purge_threads =4 # 4(garbage collection)
+innodb_page_cleaners=8 # 4(flush lru list)
+#是否进行死锁检测innodb_deadlock_detect =on # on
+innodb_lock_wait_timeout = 10
+innodb_spin_wait_delay =6 # 6
+innodb_autoinc_lock_mode =2 # 1
+
+#mgr settings
+loose-plugin_load_add = 'mysql_clone.so'
+#loose-plugin_load_add = 'group_replication.so'
+#loose-group_replication_group_name = "6c252d9f-8182-4da6-97da-a7ed51ca3957"
+#MGR本地节点IP:PORT,请自行替换#
+loose-group_replication_local_address = "node1:33061"
+#MGR集群所有节点IP:PORT,请自行替换#
+loose-group_replication_group_seeds = "node1:33061,node2:33061,node3:33061"
+#loose-group_replication_start_on_boot = OFF
+#loose-group_replication_bootstrap_group = OFF
+#loose-group_replication_exit_state_action = READ_ONLY
+#loose-group_replication_flow_control_mode = "DISABLED"
+#loose-group_replication_single_primary_mode = ON
+#loose-group_replication_communication_max_message_size = 10M
+#loose-group_replication_unreachable_majority_timeout = 30
+#loose-group_replication_member_expel_timeout = 5
+#loose-group_replication_autorejoin_tries = 288
+
+#innodb monitor settings
+innodb_monitor_enable = "module_innodb"
+innodb_monitor_enable = "module_server"
+innodb_monitor_enable = "module_dml"
+innodb_monitor_enable = "module_ddl"
+innodb_monitor_enable = "module_trx"
+innodb_monitor_enable = "module_os"
+innodb_monitor_enable = "module_purge"
+innodb_monitor_enable = "module_log"
+innodb_monitor_enable = "module_lock"
+innodb_monitor_enable = "module_buffer"
+innodb_monitor_enable = "module_index"
+innodb_monitor_enable = "module_ibuf_system"
+innodb_monitor_enable = "module_buffer_page"
+#innodb_monitor_enable = "module_adaptive_hash"
+
+#pfs settings
+performance_schema =on # on
+performance_schema_consumer_global_instrumentation =on # on
+performance_schema_consumer_thread_instrumentation =on # on
+performance_schema_consumer_events_stages_current =on # off
+performance_schema_consumer_events_stages_history =on # off
+performance_schema_consumer_events_stages_history_long =off # off
+performance_schema_consumer_statements_digest =on # on
+performance_schema_consumer_events_statements_current =on # on
+performance_schema_consumer_events_statements_history =on # on
+performance_schema_consumer_events_statements_history_long =off # off
+performance_schema_consumer_events_waits_current =on # off
+performance_schema_consumer_events_waits_history =on # off
+performance_schema_consumer_events_waits_history_long =off # off
+performance-schema-instrument ='memory/%=COUNTED'
+performance-schema-instrument = 'wait/lock/metadata/sql/mdl=ON'
+
+#edit for temporary
+#sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_IN_DATE,NO_ZERO_DATE,ONLY_FULL_GROUP_BY'
+sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'
+innodb_numa_interleave = on
+[mysqldump]
+quick
 EOF
 }
 
@@ -546,8 +796,14 @@ ConfigMysqlPasswd() {
 }
 
 ConfigureBootStartup() {
-    echo "${MYSQL_BASE_DIR}/mysql/bin/mysqld_safe --defaults-file=/app/mysql/my.cnf &" >>/etc/rc.local
-    chmod +x /etc/rc.d/rc.local
+    grep /mysql/bin/mysqld_safe /etc/rc.d/rc.local >&/dev/null
+    if [ $? -ne 0 ]; then
+        echo "${MYSQL_BASE_DIR}/mysql/bin/mysqld_safe --defaults-file=/app/mysql/my.cnf &" >>/etc/rc.local
+        chmod +x /etc/rc.d/rc.local
+    else
+        c1 "MySQL boot is configured" green
+    fi
+
 }
 
 Install_Mysql5() {
