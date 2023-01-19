@@ -6,10 +6,11 @@ echo "@Creation time     : 2023-01-18 11-15-24"
 echo "@Function          : Install Mysql 5.7 or 8.0 on Linux 7"
 echo "******************************************************************************"
 
+export INPUT=$1
 export DB_VRSION=8.0
 export SOFTWARE_DIR=/home/weilin/Downloads/mysql/p34927567_570_Linux-x86-64
 export MYSQL_FILE_NAME=mysql-advanced-5.7.40-linux-glibc2.12-x86_64.tar.gz
-export NEW_MYSQL_PASSWD=NewLnad@2023
+export NEW_MYSQL_PASSWD=V##T60*g#Pni$Jr
 export APP_DIR=/app/mysql
 export LOGS_DIR=/app/mysql/logs
 export DATA_DIR=/app/mysql/data
@@ -169,19 +170,19 @@ CheckMysqlSoftware() {
 UnMysqlFile() {
     case ${MYSQL_FILE_NAME##*.} in
     gz)
-        /usr/bin/tar -xvf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}/${MYSQL_FILE_NAME%.*.*}
+        /usr/bin/tar -xf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}
         ;;
     xz)
-        /usr/bin/tar -xvf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}/${MYSQL_FILE_NAME%.*.*}
+        /usr/bin/tar -xf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}
         ;;
     txz)
-        /usr/bin/tar -xvf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}/${MYSQL_FILE_NAME%.*.*}
+        /usr/bin/tar -xf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}
         ;;
     zip)
-        /usr/bin/unzip ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -d ${MYSQL_BASE_DIR}/${MYSQL_FILE_NAME%.*.*}
+        /usr/bin/unzip ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -d ${MYSQL_BASE_DIR}
         ;;
     tar)
-        /usr/bin/tar -xvf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}/${MYSQL_FILE_NAME%.*.*}
+        /usr/bin/tar -xf ${SOFTWARE_DIR}/${MYSQL_FILE_NAME} -C ${MYSQL_BASE_DIR}
         ;;
     *)
         echo
@@ -195,12 +196,9 @@ LinkMysqlSofware() {
 }
 
 CreateUserAndGroup() {
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "configuration mysql group and user" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "configuration mysql group and user" $(date)
+    echo "******************************************************************************"
 
     if [ "$(grep -E -c "mysql" /etc/group)" -eq 0 ]; then
         /usr/sbin/groupadd mysql
@@ -220,12 +218,9 @@ CreateUserAndGroup() {
 
 ConfigLimit() {
 
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "configuration mysql limit config" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "configuration mysql limit config" $(date)
+    echo "******************************************************************************"
 
     cat >/etc/security/limits.d/99-mysql-limit.conf <<EOF
 #mysql limits
@@ -241,30 +236,22 @@ EOF
 
 ConfigOsEnv() {
 
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "configuration mysql os env" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "configuration mysql os env" $(date)
+    echo "******************************************************************************"
 
     cat >>/etc/profile <<EOF
 #MYSQL_HOME
-export MYSQL_HOME=${APP_DIR}/mysql
+export MYSQL_HOME=${MYSQL_BASE_DIR}/mysql
 export PATH=\$PATH:\$MYSQL_HOME/bin
 EOF
-
-    source /etc/profile
 }
 
 CreateMysqlDir() {
 
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "create mysql dir" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "create mysql dir" $(date)
+    echo "******************************************************************************"
 
     mkdir -p "${APP_DIR}"
     mkdir -p "${MYSQL_BASE_DIR}"
@@ -277,17 +264,14 @@ CreateMysqlDir() {
 }
 
 Config_Mycnf5() {
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "configuration mysql 5 my.cnf config" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "configuration mysql 5 my.cnf config" $(date)
+    echo "******************************************************************************"
 
     MEM=$(expr $(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024)
     MYSQL_MEM=$(expr $MEM \* 7 / 10)
 
-    cat >>${APP_DIR}/my.cnf <<EOF
+    cat >${APP_DIR}/my.cnf <<EOF
 [universe]
 iops = 0
 mem_limit_mb = 0
@@ -358,8 +342,8 @@ max_connections = 1000  #151
 max_connect_errors = 1000000
 #用于设置table高速缓存的数量,与连接数有关
 table_open_cache = 4096
-#表定义信息缓存,mysql源码限制最多
-2000个table_definition_cache = 2000
+#表定义信息缓存,mysql源码限制最多2000个
+table_definition_cache = 2000
 #打开的表缓存实例的数量
 table_open_cache_instances = 32
 #每个连接线程被创建时,MySQL给它分配的内存大小
@@ -462,7 +446,7 @@ innodb_rollback_on_timeout = 1
 
 
 #是否需要开启ddl日志打印#
-innodb_print_ddl_logs = 1
+#innodb_print_ddl_logs = 1
 #innodb_status_file = 1
 #注意: 开启 innodb_status_output & innodb_status_output_locks 后, 可能会导致log_error文件增长较快
 innodb_status_output = 0
@@ -514,12 +498,9 @@ EOF
 }
 
 Config_Mycnf8() {
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "configuration mysql 8 my.cnf config" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "configuration mysql 8 my.cnf config" $(date)
+    echo "******************************************************************************"
 
     MEM=$(expr $(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024)
     MYSQL_MEM=$(expr $MEM \* 7 / 10)
@@ -533,51 +514,83 @@ ConfigMysqlDirPermission() {
 }
 
 InitMysqlServer() {
-    echo
-    c1 "******************************************************************************" green
-    echo
-    c1 "init mysql data and start mysql server" $(date) green
-    echo
-    c1 "******************************************************************************" green
+    echo "******************************************************************************"
+    echo "init mysql data and start mysql server" $(date)
+    echo "******************************************************************************"
 
-    ${MYSQL_BASE_DIR}/bin/mysqld --defaults-file=${APP_DIR}/my.cnf --initialize
-    ${MYSQL_BASE_DIR}/bin/mysqld_safe --defaults-file=${APP_DIR}/my.cnf &
+    ${MYSQL_BASE_DIR}/mysql/bin/mysqld --defaults-file=${APP_DIR}/my.cnf --initialize
+    {
+        ${MYSQL_BASE_DIR}/mysql/bin/mysqld_safe --defaults-file=${APP_DIR}/my.cnf &
+    } >>/dev/null
+    sleep 5s
+
 }
 
 CheckMysqlService() {
-    port=$(ss -an | grep ${MYSQL_PORT} | wc -l)
-    process=$(ps -ef | grep mysql | grep -v grep | wc -l)
-    if [[ ${port} -eq 1 ]] && [[ ${process} -eq 2 ]]; then
+    if [ ! -f "${APP_DIR}/mysql.sock" ]; then
         echo
-        c1 "Mysql Server is running" green
+        c1 "mysql server init success" green
     else
         echo
-        c1 "Mysql Server is not running" red
-        exit 1
+        c1 "mysql server init fail" red
+        sleep 30s
     fi
 }
 
 ConfigMysqlPasswd() {
-    cat ${LOGS_DIR}/error.log | grep password | head -1 | rev | cut -d ' ' -f 1 | rev >>/tmp/mysql_passwd
     OLD_MYSQL_PASSWD=$(cat ${LOGS_DIR}/error.log | grep password | head -1 | rev | cut -d ' ' -f 1 | rev)
-    ${MYSQL_BASE_DIR}/bin/mysql -S ${APP_DIR}/mysql.sock -u root -p"${OLD_MYSQL_PASSWD}" --connect-expired-password -e "alter user 'root'@'localhost' identified by '${NEW_MYSQL_PASSWD}';"
+    c1 "Please execute the following command to modify the password" db
+    c1 "${MYSQL_BASE_DIR}/mysql/bin/mysql -S ${APP_DIR}/mysql.sock -u root -p\"${OLD_MYSQL_PASSWD}\"" db
+    c1 "alter user 'root'@'localhost' identified by '${NEW_MYSQL_PASSWD}';" db
+    c1 "exit" db
 }
 
 ConfigureBootStartup() {
-    echo "${MYSQL_BASE_DIR}/bin/mysqld_safe --defaults-file=/app/mysql/my.cnf &" >>/etc/rc.local
+    echo "${MYSQL_BASE_DIR}/mysql/bin/mysqld_safe --defaults-file=/app/mysql/my.cnf &" >>/etc/rc.local
     chmod +x /etc/rc.d/rc.local
 }
 
 Install_Mysql5() {
+    CheckUserAuthority
     CheckMysqlSoftware
+    CreateMysqlDir
+    UnMysqlFile
+    LinkMysqlSofware
+    CreateUserAndGroup
+    ConfigLimit
+    ConfigOsEnv
+    Config_Mycnf5
+    ConfigMysqlDirPermission
+    InitMysqlServer
+    CheckMysqlService
+    ConfigMysqlPasswd
+    ConfigureBootStartup
 }
 
 Install_Mysql8() {
+    CheckUserAuthority
     CheckMysqlSoftware
+    CreateMysqlDir
+    UnMysqlFile
+    LinkMysqlSofware
+    CreateUserAndGroup
+    ConfigLimit
+    ConfigOsEnv
+    Config_Mycnf8
+    ConfigMysqlDirPermission
+    InitMysqlServer
+    CheckMysqlService
+    ConfigMysqlPasswd
+    ConfigureBootStartup
 }
 
 Install_Mysql() {
-    if [ "$#" != 0 ]; then
+    if [ ! -n "${INPUT}" ]; then
+        echo
+        c1 "Please enter the version to be installed" red
+        c1 "Please to view help ./InstallShellMysql.sh -h" red
+        exit 1
+    else
         case ${DB_VRSION} in
         5.7)
             Install_Mysql5
@@ -590,12 +603,6 @@ Install_Mysql() {
             c1 "The version does not support automatic installation" red
             ;;
         esac
-
-    else
-        echo
-        c1 "Please enter the version to be installed" red
-        c1 "Please to view help ./InstallShellMysql.sh -h" red
-        exit 1
     fi
 }
 
